@@ -203,7 +203,7 @@ def fetch_wuwa_wiki(_):
     # 명조 Fandom 위키의 Redemption Code 문서 중 Active 표. 위키 갱신이 늦어 만료일로 한 번 더 거름
     r = requests.get("https://wutheringwaves.fandom.com/api.php",
                      params={"action": "parse", "page": "Redemption_Code", "prop": "wikitext", "format": "json"},
-                     headers={"User-Agent": "Hoyo-Coupon-Link (GitHub Actions)"}, timeout=TIMEOUT)
+                     headers={"User-Agent": "Game-Coupon-Notifier (GitHub Actions)"}, timeout=TIMEOUT)
     r.raise_for_status()
     text = r.json()["parse"]["wikitext"]["*"]
     active = text.split("===Active===", 1)[1].split("===", 1)[0]

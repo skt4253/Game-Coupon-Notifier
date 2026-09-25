@@ -1,4 +1,4 @@
-name: Hoyo Coupon Link
+name: Game Coupon Notifier
 
 on:
   schedule:

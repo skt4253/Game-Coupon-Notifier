@@ -1,4 +1,4 @@
-# 🎁 호요버스 쿠폰 교환 링크
+# 🎁 게임 쿠폰 알림
 
 원신, 붕괴 스타레일, 젠레스 존 제로, 명조의 **새 쿠폰 코드를 자동으로 수집**해서, 코드가 미리 채워진 교환 링크를 GitHub Actions로 디스코드에 보내 주는 스크립트입니다. 직접 코드를 넣어 링크를 만들 수도 있습니다.
 
@@ -39,7 +39,7 @@
 ### Step 1. Repository 생성
 
 1. GitHub에서 **New repository** 클릭
-2. Repository name 입력 (예: `hoyo-coupon-link`)
+2. Repository name 입력 (예: `game-coupon-notifier`)
 3. **Private** 선택
 4. **Add a README file** 체크 후 생성
 
@@ -255,7 +255,7 @@ def fetch_wuwa_wiki(_):
     # 명조 Fandom 위키의 Redemption Code 문서 중 Active 표. 위키 갱신이 늦어 만료일로 한 번 더 거름
     r = requests.get("https://wutheringwaves.fandom.com/api.php",
                      params={"action": "parse", "page": "Redemption_Code", "prop": "wikitext", "format": "json"},
-                     headers={"User-Agent": "Hoyo-Coupon-Link (GitHub Actions)"}, timeout=TIMEOUT)
+                     headers={"User-Agent": "Game-Coupon-Notifier (GitHub Actions)"}, timeout=TIMEOUT)
     r.raise_for_status()
     text = r.json()["parse"]["wikitext"]["*"]
     active = text.split("===Active===", 1)[1].split("===", 1)[0]
@@ -411,7 +411,7 @@ if __name__ == "__main__":
 파일명 입력란에 `.github/workflows/coupon.yml` 입력 후 아래 코드 붙여넣기:
 
 ```yaml
-name: Hoyo Coupon Link
+name: Game Coupon Notifier
 
 on:
   schedule:
@@ -490,7 +490,7 @@ repo → **Settings** → **Secrets and variables** → **Actions** → **New re
 
 ### Step 5. 테스트 실행
 
-repo → **Actions** → **Hoyo Coupon Link** → **Run workflow** → 입력칸을 모두 비운 채 **Run workflow**
+repo → **Actions** → **Game Coupon Notifier** → **Run workflow** → 입력칸을 모두 비운 채 **Run workflow**
 
 첫 실행에서는 현재 유효한 코드가 한꺼번에 전송되고, 이후로는 새 코드만 전송됩니다.
 
@@ -508,7 +508,7 @@ repo → **Actions** → **Hoyo Coupon Link** → **Run workflow** → 입력칸
 
 ## ✍️ 직접 입력
 
-repo → **Actions** → **Hoyo Coupon Link** → **Run workflow**에서 게임별 입력칸에 코드를 공백이나 쉼표로 구분해 넣습니다. 하지 않는 게임은 비워 두면 됩니다. **모두 비우면 자동 수집**이 실행됩니다.
+repo → **Actions** → **Game Coupon Notifier** → **Run workflow**에서 게임별 입력칸에 코드를 공백이나 쉼표로 구분해 넣습니다. 하지 않는 게임은 비워 두면 됩니다. **모두 비우면 자동 수집**이 실행됩니다.
 
 ```
 원신:           ABC123 DEF456
