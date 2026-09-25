@@ -432,7 +432,7 @@ on:
         required: false
 
 permissions:
-  contents: write  # sent.json 커밋용
+  contents: read
 
 concurrency:
   group: coupon
@@ -444,6 +444,13 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+      - name: 보낸 코드 기록 불러오기
+        id: sent
+        uses: actions/cache/restore@v6
+        with:
+          path: sent.json
+          key: sent-${{ github.run_id }}
+          restore-keys: sent-
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
@@ -455,14 +462,13 @@ jobs:
           ZZZ: ${{ inputs.zzz }}
           WUWA: ${{ inputs.wuwa }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-      - name: 보낸 코드 기록 커밋
-        run: |
-          git add sent.json 2>/dev/null || true
-          if git diff --cached --quiet; then exit 0; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "보낸 쿠폰 코드 기록 갱신"
-          git push
+      - name: 보낸 코드 기록 저장
+        # 기록은 repo가 아닌 Actions 캐시에 보관 (Fork·복사해도 따라가지 않음). 내용이 바뀐 경우만 저장
+        if: hashFiles('sent.json') != '' && steps.sent.outputs.cache-matched-key != format('sent-{0}', hashFiles('sent.json'))
+        uses: actions/cache/save@v6
+        with:
+          path: sent.json
+          key: sent-${{ hashFiles('sent.json') }}
 ```
 
 ---
@@ -500,7 +506,8 @@ repo → **Actions** → **Game Coupon Notifier** → **Run workflow** → 입�
 
 **2시간마다** (UTC 짝수 시 7분 = KST 홀수 시 7분) 자동 실행됩니다.
 
-- 이미 보낸 코드는 repo의 `sent.json`에 기록되어 다시 보내지 않습니다. (워크플로가 자동 커밋)
+- 이미 보낸 코드는 `sent.json`에 기록되어 다시 보내지 않습니다. 이 기록은 repo가 아닌 **Actions 캐시**에 저장되므로 Fork하거나 복사해도 따라가지 않습니다.
+- 7일 넘게 실행되지 않으면 캐시가 삭제되어, 다음 실행 때 현재 유효한 코드가 다시 한꺼번에 전송될 수 있습니다.
 - 새 코드가 없으면 아무 메시지도 보내지 않습니다.
 - 주기를 바꾸려면 `coupon.yml`의 cron 값을 UTC 기준으로 수정하세요. (GitHub Actions 스케줄은 수 분~수십 분 지연될 수 있습니다.)
 
@@ -548,7 +555,7 @@ gh workflow run coupon.yml -f genshin="ABC123 DEF456" -f hsr="STARRAIL" -f wuwa=
 | `HTTP 401` / `HTTP 404` | 웹훅 URL이 틀렸거나 삭제됨. 새로 만들어 Secret 갱신 |
 | `[WARN] ... 수집 실패` | 수집처 일시 장애. 다른 수집처로 계속 진행되며 다음 실행 때 재시도 |
 | 임베드는 오는데 버튼이 없음 | 디스코드 웹훅 버튼 지원 문제. Actions 로그의 응답 확인 |
-| 같은 코드를 다시 받고 싶음 | `sent.json`에서 해당 코드를 지우거나 직접 입력으로 실행 |
+| 같은 코드를 다시 받고 싶음 | 직접 입력으로 실행. 전부 다시 받으려면 **Actions → Caches**에서 `sent-` 캐시 삭제 |
 | 자동 실행이 안 됨 | Public repo는 60일간 활동이 없으면 스케줄이 꺼짐. Actions 탭에서 다시 활성화 |
 
 ## ⚠️ 주의사항
