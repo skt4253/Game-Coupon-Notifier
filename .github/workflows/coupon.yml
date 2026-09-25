@@ -1,10 +1,12 @@
 name: Hoyo Coupon Link
 
 on:
+  schedule:
+    - cron: '7 */2 * * *'  # 2시간마다 새 코드 자동 수집 (UTC 기준, 매 짝수 시 7분)
   workflow_dispatch:
     inputs:
       genshin:
-        description: '원신 코드 (공백/쉼표 구분)'
+        description: '원신 코드 (공백/쉼표 구분, 모두 비우면 자동 수집)'
         required: false
       hsr:
         description: '붕괴 스타레일 코드 (공백/쉼표 구분)'
@@ -13,9 +15,17 @@ on:
         description: '젠레스 존 제로 코드 (공백/쉼표 구분)'
         required: false
 
+permissions:
+  contents: write  # sent.json 커밋용
+
+concurrency:
+  group: coupon
+  cancel-in-progress: false
+
 jobs:
   coupon:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -28,3 +38,11 @@ jobs:
           HSR: ${{ inputs.hsr }}
           ZZZ: ${{ inputs.zzz }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      - name: 보낸 코드 기록 커밋
+        run: |
+          git add sent.json 2>/dev/null || true
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "보낸 쿠폰 코드 기록 갱신"
+          git push
