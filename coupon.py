@@ -151,7 +151,7 @@ if __name__ == "__main__":
         per_game.append((name, short, url, codes))
         new_sent[key] = sent.get(key, []) + [c for c in codes if c not in sent.get(key, [])]
 
-    title = "🎁 쿠폰 교환 링크" if manual else "🆕 새 쿠폰 코드"
+    title = "🎁 쿠폰 교환 링크" if manual else "🎁 새 쿠폰 교환 링크"
     payload = build_message(title, per_game)
     if payload is None:
         print("☑️ 새 코드 없음")

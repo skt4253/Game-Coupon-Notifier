@@ -199,7 +199,7 @@ if __name__ == "__main__":
         per_game.append((name, short, url, codes))
         new_sent[key] = sent.get(key, []) + [c for c in codes if c not in sent.get(key, [])]
 
-    title = "🎁 쿠폰 교환 링크" if manual else "🆕 새 쿠폰 코드"
+    title = "🎁 쿠폰 교환 링크" if manual else "🎁 새 쿠폰 교환 링크"
     payload = build_message(title, per_game)
     if payload is None:
         print("☑️ 새 코드 없음")
@@ -324,7 +324,7 @@ gh workflow run coupon.yml -f genshin="ABC123 DEF456" -f hsr="STARRAIL"
 
 ## 📱 알림 예시
 
-**🆕 새 쿠폰 코드**
+**🎁 새 쿠폰 교환 링크**
 
 - **원신**: [VESNAONPATROL](https://genshin.hoyoverse.com/ko/gift?code=VESNAONPATROL) · Primogem×40, Mora×20000, Hero's Wit×3
 - **젠레스 존 제로**: [ZZZINK32](https://zenless.hoyoverse.com/redemption?code=ZZZINK32) · Polychrome×20, Denny×2,222
