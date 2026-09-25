@@ -20,6 +20,7 @@ on:
 
 permissions:
   contents: read
+  actions: write  # 워크플로 자동 재활성화용
 
 concurrency:
   group: coupon
@@ -56,3 +57,9 @@ jobs:
         with:
           path: sent.json
           key: sent-${{ hashFiles('sent.json') }}
+      - name: 자동 실행 유지
+        # Public repo는 60일간 활동이 없으면 스케줄이 꺼지므로, 실행할 때마다 워크플로를 다시 활성화해 타이머를 초기화
+        if: always()
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/coupon.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}

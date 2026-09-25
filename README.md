@@ -433,6 +433,7 @@ on:
 
 permissions:
   contents: read
+  actions: write  # 워크플로 자동 재활성화용
 
 concurrency:
   group: coupon
@@ -469,6 +470,12 @@ jobs:
         with:
           path: sent.json
           key: sent-${{ hashFiles('sent.json') }}
+      - name: 자동 실행 유지
+        # Public repo는 60일간 활동이 없으면 스케줄이 꺼지므로, 실행할 때마다 워크플로를 다시 활성화해 타이머를 초기화
+        if: always()
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/coupon.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}
 ```
 
 ---
@@ -556,7 +563,7 @@ gh workflow run coupon.yml -f genshin="ABC123 DEF456" -f hsr="STARRAIL" -f wuwa=
 | `[WARN] ... 수집 실패` | 수집처 일시 장애. 다른 수집처로 계속 진행되며 다음 실행 때 재시도 |
 | 임베드는 오는데 버튼이 없음 | 디스코드 웹훅 버튼 지원 문제. Actions 로그의 응답 확인 |
 | 같은 코드를 다시 받고 싶음 | 직접 입력으로 실행. 전부 다시 받으려면 **Actions → Caches**에서 `sent-` 캐시 삭제 |
-| 자동 실행이 안 됨 | Public repo는 60일간 활동이 없으면 스케줄이 꺼짐. Actions 탭에서 다시 활성화 |
+| 자동 실행이 안 됨 | 원래 Public repo는 60일간 활동이 없으면 스케줄이 꺼지지만, 워크플로가 실행마다 스스로 재활성화합니다. 그래도 꺼졌다면 Actions 탭에서 다시 활성화 |
 
 ## ⚠️ 주의사항
 
