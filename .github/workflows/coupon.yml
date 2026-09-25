@@ -1,0 +1,30 @@
+name: 쿠폰 링크 보내기
+
+on:
+  workflow_dispatch:
+    inputs:
+      genshin:
+        description: "원신 코드들 (공백/쉼표 구분)"
+        required: false
+      hsr:
+        description: "붕괴: 스타레일 코드들 (공백/쉼표 구분)"
+        required: false
+      zzz:
+        description: "젠레스 존 제로 코드들 (공백/쉼표 구분)"
+        required: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 웹훅 전송
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GENSHIN: ${{ inputs.genshin }}
+          HSR: ${{ inputs.hsr }}
+          ZZZ: ${{ inputs.zzz }}
+        run: python webhook.py
