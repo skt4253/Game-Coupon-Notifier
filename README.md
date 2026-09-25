@@ -1,4 +1,4 @@
-# 🎁 게임 쿠폰 교환 링크
+# 🎁 호요버스 쿠폰 교환 링크
 
 원신, 붕괴 스타레일, 젠레스 존 제로 쿠폰 코드를 입력하면 코드가 미리 채워진 교환 링크를 GitHub Actions로 만들어 디스코드에 보내 주는 스크립트입니다.
 
@@ -26,7 +26,7 @@
 ### Step 1. Repository 생성
 
 1. GitHub에서 **New repository** 클릭
-2. Repository name 입력 (예: `game-coupon`)
+2. Repository name 입력 (예: `hoyo-coupon-link`)
 3. **Private** 선택
 4. **Add a README file** 체크 후 생성
 
@@ -124,7 +124,7 @@ if __name__ == "__main__":
 파일명 입력란에 `.github/workflows/coupon.yml` 입력 후 아래 코드 붙여넣기:
 
 ```yaml
-name: Game Coupon
+name: Hoyo Coupon Link
 
 on:
   workflow_dispatch:
@@ -181,7 +181,7 @@ repo → **Settings** → **Secrets and variables** → **Actions** → **New re
 
 ### Step 5. 실행
 
-repo → **Actions** → **Game Coupon** → **Run workflow**
+repo → **Actions** → **Hoyo Coupon Link** → **Run workflow**
 
 게임별 입력칸에 코드를 공백이나 쉼표로 구분해 넣고 **Run workflow**를 누릅니다. 하지 않는 게임은 비워 두면 됩니다.
 

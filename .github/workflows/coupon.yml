@@ -1,4 +1,4 @@
-name: Game Coupon
+name: Hoyo Coupon Link
 
 on:
   workflow_dispatch:
