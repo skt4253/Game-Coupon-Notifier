@@ -1,6 +1,6 @@
 # 🎁 호요버스 쿠폰 교환 링크
 
-원신, 붕괴 스타레일, 젠레스 존 제로의 **새 쿠폰 코드를 자동으로 수집**해서, 코드가 미리 채워진 교환 링크를 GitHub Actions로 디스코드에 보내 주는 스크립트입니다. 직접 코드를 넣어 링크를 만들 수도 있습니다.
+원신, 붕괴 스타레일, 젠레스 존 제로, 명조의 **새 쿠폰 코드를 자동으로 수집**해서, 코드가 미리 채워진 교환 링크를 GitHub Actions로 디스코드에 보내 주는 스크립트입니다. 직접 코드를 넣어 링크를 만들 수도 있습니다.
 
 ### "쿠폰 코드 찾아다니고 하나하나 복사해서 붙여넣기 귀찮은 사람들을 위한 스크립트"
 
@@ -11,8 +11,11 @@
 | 원신 (Genshin Impact) | `https://genshin.hoyoverse.com/ko/gift?code={코드}` |
 | 붕괴: 스타레일 (Honkai: Star Rail) | `https://hsr.hoyoverse.com/gift?code={코드}` |
 | 젠레스 존 제로 (Zenless Zone Zero) | `https://zenless.hoyoverse.com/redemption?code={코드}` |
+| 명조: 워더링 웨이브 (Wuthering Waves) | 웹 교환 페이지 없음 → 코드만 전송 |
 
 링크를 누르면 코드가 채워진 교환 페이지가 열립니다. 로그인하고 서버를 고른 뒤 **교환**만 누르면 됩니다.
+
+명조는 게임 안에서만 교환할 수 있어 링크·버튼 없이 코드와 입력 위치(터미널 → 설정 → 기타 설정 → 교환 코드)만 보내 드립니다.
 
 ## 🔎 코드 수집처
 
@@ -20,6 +23,7 @@
 |--------|------|
 | [hoyo-codes.seria.moe](https://hoyo-codes.seria.moe/codes?game=genshin) | 비공식 공개 API. 유효한(`OK`) 코드와 보상 정보 |
 | HoYoLAB 게임 가이드 | 공식. 특별 방송 코드가 공개된 기간에만 채워짐 |
+| [명조 Fandom 위키](https://wutheringwaves.fandom.com/wiki/Redemption_Code) | 명조 전용. Active 표에서 만료일이 지난 코드는 제외 |
 
 둘 다 무료이며 로그인·API 키가 필요 없습니다. 한쪽이 실패해도 나머지로 계속 진행합니다.
 
@@ -59,12 +63,8 @@ SENT_FILE = "sent.json"  # 이미 보낸 코드 기록
 # 외부에서 가져온 값은 이 형식에 맞는 코드만 사용 (링크/마크다운 주입 방지)
 CODE_RE = re.compile(r"^[A-Z0-9]{4,30}$")
 
-# (키, 수동 입력 환경변수, 게임 이름, 버튼용 짧은 이름, 교환 URL, seria 게임명, HoYoLAB game_id)
-GAMES = [
-    ("genshin", "GENSHIN", "원신",          "원신",   "https://genshin.hoyoverse.com/ko/gift?code={}",      "genshin", 2),
-    ("hsr",     "HSR",     "붕괴 스타레일",  "스레",   "https://hsr.hoyoverse.com/gift?code={}",             "hkrpg",   6),
-    ("zzz",     "ZZZ",     "젠레스 존 제로", "젠존제", "https://zenless.hoyoverse.com/redemption?code={}",   "nap",     8),
-]
+# 웹 교환 페이지가 없는 게임(명조)은 코드와 함께 이 안내를 보여 줌
+WUWA_GUIDE = "게임 내 터미널 → 설정 → 기타 설정 → 교환 코드에 입력하세요."
 
 def parse_codes(s):
     # 공백/쉼표로 나누고 대문자로 변환, 입력 순서를 유지하며 중복 제거
@@ -76,7 +76,7 @@ def clean_rewards(s):
     # "Primogem*60;Mora*20000" → "Primogem×60, Mora×20000", 마크다운/멘션에 쓰이는 문자 제거
     s = (s or "").replace("*", "×").replace(";", ", ").replace("_", " ")
     s = re.sub(r"[^\w\s,.'’×+\-]", "", s)  # URL·마크다운·멘션에 쓰이는 문자 제거
-    return re.sub(r"\s+", " ", s).strip()[:100]
+    return re.sub(r"\s+", " ", s).strip()[:150]
 
 # ---------- 수집 ----------
 
@@ -97,10 +97,50 @@ def fetch_hoyolab(game_id):
             codes.append((b.get("exchange_code", ""), ""))
     return codes
 
-def collect(seria_game, game_id, name):
+MONTHS = {m: i for i, m in enumerate(["January", "February", "March", "April", "May", "June", "July",
+                                      "August", "September", "October", "November", "December"], 1)}
+
+def fetch_wuwa_wiki(_):
+    # 명조 Fandom 위키의 Redemption Code 문서 중 Active 표. 위키 갱신이 늦어 만료일로 한 번 더 거름
+    r = requests.get("https://wutheringwaves.fandom.com/api.php",
+                     params={"action": "parse", "page": "Redemption_Code", "prop": "wikitext", "format": "json"},
+                     headers={"User-Agent": "Hoyo-Coupon-Link (GitHub Actions)"}, timeout=TIMEOUT)
+    r.raise_for_status()
+    text = r.json()["parse"]["wikitext"]["*"]
+    active = text.split("===Active===", 1)[1].split("===", 1)[0]
+
+    now = datetime.now(timezone(timedelta(hours=-8)))  # 위키 만료 시각은 PT 기준 (PST로 넉넉하게)
+    codes = []
+    for row in active.split("\n|-"):
+        code = re.search(r"<code>(.+?)</code>", row)
+        if not code:
+            continue
+        until = re.search(r"Valid until: ([A-Z][a-z]+) (\d{1,2}), (\d{4})(?: (\d{1,2}):(\d{2}))?", row)
+        if until and until.group(1) in MONTHS:
+            mon, day, year = MONTHS[until.group(1)], int(until.group(2)), int(until.group(3))
+            hh, mm = (int(until.group(4)), int(until.group(5))) if until.group(4) else (23, 59)
+            if now > datetime(year, mon, day, hh, mm, tzinfo=now.tzinfo):
+                continue
+        rewards = re.search(r"Card List\|(.*?)\|delim", row)
+        codes.append((code.group(1), rewards.group(1) if rewards else ""))
+    return codes
+
+# (키, 수동 입력 환경변수, 게임 이름, 버튼용 짧은 이름, 교환 URL(없으면 None), 수집처 [(이름, 함수, 인자)])
+GAMES = [
+    ("genshin", "GENSHIN", "원신",          "원신",   "https://genshin.hoyoverse.com/ko/gift?code={}",
+     [("seria", fetch_seria, "genshin"), ("hoyolab", fetch_hoyolab, 2)]),
+    ("hsr",     "HSR",     "붕괴 스타레일",  "스레",   "https://hsr.hoyoverse.com/gift?code={}",
+     [("seria", fetch_seria, "hkrpg"),   ("hoyolab", fetch_hoyolab, 6)]),
+    ("zzz",     "ZZZ",     "젠레스 존 제로", "젠존제", "https://zenless.hoyoverse.com/redemption?code={}",
+     [("seria", fetch_seria, "nap"),     ("hoyolab", fetch_hoyolab, 8)]),
+    ("wuwa",    "WUWA",    "명조",          "명조",   None,
+     [("wiki", fetch_wuwa_wiki, None)]),
+]
+
+def collect(sources, name):
     # 코드 → 보상. 한 수집처가 실패해도 나머지로 계속 진행
     found = {}
-    for label, fetch, arg in (("seria", fetch_seria, seria_game), ("hoyolab", fetch_hoyolab, game_id)):
+    for label, fetch, arg in sources:
         try:
             items = fetch(arg)
         except Exception as e:
@@ -142,11 +182,16 @@ def make_fields(name, lines):
     return fields
 
 def build_message(title, per_game):
-    # per_game: [(게임 이름, 짧은 이름, 교환 URL, {코드: 보상})]
+    # per_game: [(게임 이름, 짧은 이름, 교환 URL 또는 None, {코드: 보상})]
     fields, buttons, overflow = [], [], False
 
     for name, short, url, codes in per_game:
         if not codes:
+            continue
+        if url is None:
+            # 웹 교환 페이지가 없으면 복사하기 쉬운 코드 블록 + 입력 위치 안내, 버튼 없음
+            lines = [f"`{c}`" + (f" · {r}" if r else "") for c, r in codes.items()]
+            fields += make_fields(name, lines + [f"*{WUWA_GUIDE}*"])
             continue
         lines = [f"[{c}]({url.format(c)})" + (f" · {r}" if r else "") for c, r in codes.items()]
         fields += make_fields(name, lines)
@@ -165,8 +210,10 @@ def build_message(title, per_game):
     if overflow:
         embed["footer"]["text"] += f" · 버튼은 최대 {MAX_BUTTONS}개까지 표시됩니다. 나머지는 위 링크를 이용하세요."
 
-    rows = [{"type": 1, "components": buttons[i:i + 5]} for i in range(0, len(buttons), 5)]
-    return {"embeds": [embed], "components": rows, "allowed_mentions": {"parse": []}}
+    payload = {"embeds": [embed], "allowed_mentions": {"parse": []}}
+    if buttons:
+        payload["components"] = [{"type": 1, "components": buttons[i:i + 5]} for i in range(0, len(buttons), 5)]
+    return payload
 
 def send_discord(payload):
     # 일반 웹훅은 with_components=true 를 붙여야 링크 버튼이 표시됨
@@ -187,13 +234,13 @@ if __name__ == "__main__":
     manual = any(os.environ.get(env, "").strip() for _, env, *_ in GAMES)
 
     per_game, new_sent = [], {}
-    for key, env, name, short, url, seria_game, game_id in GAMES:
+    for key, env, name, short, url, sources in GAMES:
         if manual:
             # 수동 입력: 이미 보낸 코드라도 그대로 보냄
             codes = {c: "" for c in parse_codes(os.environ.get(env, ""))}
         else:
             # 자동 수집: 아직 보내지 않은 코드만
-            codes = {c: r for c, r in collect(seria_game, game_id, name).items() if c not in sent.get(key, [])}
+            codes = {c: r for c, r in collect(sources, name).items() if c not in sent.get(key, [])}
         if codes:
             print(f"[DEBUG] {name} 전송 대상: {', '.join(codes)}")
         per_game.append((name, short, url, codes))
@@ -229,6 +276,9 @@ on:
       zzz:
         description: '젠레스 존 제로 코드 (공백/쉼표 구분)'
         required: false
+      wuwa:
+        description: '명조 코드 (공백/쉼표 구분, 링크 없이 코드만 전송)'
+        required: false
 
 permissions:
   contents: write  # sent.json 커밋용
@@ -252,6 +302,7 @@ jobs:
           GENSHIN: ${{ inputs.genshin }}
           HSR: ${{ inputs.hsr }}
           ZZZ: ${{ inputs.zzz }}
+          WUWA: ${{ inputs.wuwa }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       - name: 보낸 코드 기록 커밋
         run: |
@@ -312,12 +363,13 @@ repo → **Actions** → **Hoyo Coupon Link** → **Run workflow**에서 게임�
 원신:           ABC123 DEF456
 붕괴 스타레일:   STARRAIL
 젠레스 존 제로:  ZZZ2026
+명조:           WUTHERINGGIFT
 ```
 
 터미널(gh CLI)에서:
 
 ```bash
-gh workflow run coupon.yml -f genshin="ABC123 DEF456" -f hsr="STARRAIL"
+gh workflow run coupon.yml -f genshin="ABC123 DEF456" -f hsr="STARRAIL" -f wuwa="WUTHERINGGIFT"
 ```
 
 > 💡 GitHub 모바일 앱에서도 **Actions** 탭에서 바로 실행할 수 있습니다.
@@ -328,9 +380,12 @@ gh workflow run coupon.yml -f genshin="ABC123 DEF456" -f hsr="STARRAIL"
 
 - **원신**: [VESNAONPATROL](https://genshin.hoyoverse.com/ko/gift?code=VESNAONPATROL) · Primogem×40, Mora×20000, Hero's Wit×3
 - **젠레스 존 제로**: [ZZZINK32](https://zenless.hoyoverse.com/redemption?code=ZZZINK32) · Polychrome×20, Denny×2,222
+- **명조**: `WUTHERINGGIFT` · Astrite×50, Shell Credit×10000  
+  *게임 내 터미널 → 설정 → 기타 설정 → 교환 코드에 입력하세요.*
 
 버튼: `원신 VESNAONPATROL` `젠존제 ZZZINK32`
 
+- 명조는 버튼이 붙지 않습니다.
 - 코드는 대문자로 바뀌고, 중복은 입력 순서를 유지한 채 제거됩니다.
 - 버튼은 최대 25개까지 붙습니다. 넘치는 코드는 임베드 링크로만 제공됩니다.
 
@@ -349,5 +404,6 @@ gh workflow run coupon.yml -f genshin="ABC123 DEF456" -f hsr="STARRAIL"
 - 호요버스 교환 페이지는 URL 하나에 코드 하나만 받으므로 코드마다 링크가 하나씩 생성됩니다
 - 디스코드는 버튼 하나로 여러 탭을 여는 기능을 지원하지 않습니다
 - seria API는 개인이 운영하는 비공식 서비스라 언젠가 중단될 수 있습니다
+- 명조 코드는 위키 편집자가 갱신하는 만큼 반영되므로 공식 발표보다 늦을 수 있습니다
 - 외부에서 수집한 값은 코드 형식(영문 대문자·숫자 4~30자)만 통과시키고, 보상 문구의 링크·마크다운·멘션 문자는 제거한 뒤 사용합니다
 - **Secrets에 저장된 값은 절대 외부에 공유하지 마세요**

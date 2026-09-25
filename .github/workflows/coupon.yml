@@ -14,6 +14,9 @@ on:
       zzz:
         description: '젠레스 존 제로 코드 (공백/쉼표 구분)'
         required: false
+      wuwa:
+        description: '명조 코드 (공백/쉼표 구분, 링크 없이 코드만 전송)'
+        required: false
 
 permissions:
   contents: write  # sent.json 커밋용
@@ -37,6 +40,7 @@ jobs:
           GENSHIN: ${{ inputs.genshin }}
           HSR: ${{ inputs.hsr }}
           ZZZ: ${{ inputs.zzz }}
+          WUWA: ${{ inputs.wuwa }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
       - name: 보낸 코드 기록 커밋
         run: |
