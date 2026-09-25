@@ -280,7 +280,7 @@ def fetch_wuwa_wiki(_):
 GAMES = [
     ("genshin", "GENSHIN", "원신",          "원신",   "https://genshin.hoyoverse.com/ko/gift?code={}",
      [("seria", fetch_seria, "genshin"), ("hoyolab", fetch_hoyolab, 2)]),
-    ("hsr",     "HSR",     "붕괴 스타레일",  "스레",   "https://hsr.hoyoverse.com/gift?code={}",
+    ("hsr",     "HSR",     "붕괴 스타레일",  "붕스",   "https://hsr.hoyoverse.com/gift?code={}",
      [("seria", fetch_seria, "hkrpg"),   ("hoyolab", fetch_hoyolab, 6)]),
     ("zzz",     "ZZZ",     "젠레스 존 제로", "젠존제", "https://zenless.hoyoverse.com/redemption?code={}",
      [("seria", fetch_seria, "nap"),     ("hoyolab", fetch_hoyolab, 8)]),
