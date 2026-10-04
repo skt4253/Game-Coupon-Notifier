@@ -51,7 +51,7 @@ repo 메인 페이지 → **Add file** → **Create new file**로 아래 두 파
 | 파일 | 역할 |
 |------|------|
 | [`coupon.py`](coupon.py) | 코드 수집 후 디스코드로 전송하는 스크립트 |
-| [`.github/workflows/coupon.yml`](.github/workflows/coupon.yml) | 2시간마다 스크립트를 실행하는 GitHub Actions 워크플로 |
+| [`.github/workflows/coupon.yml`](.github/workflows/coupon.yml) | 1시간마다 스크립트를 실행하는 GitHub Actions 워크플로 |
 
 ---
 
@@ -86,14 +86,14 @@ repo → **Actions** → **Game Coupon Notifier** → **Run workflow** → 입�
 
 ## ⏰ 자동 수집
 
-**2시간마다** (UTC 짝수 시 7분 = KST 홀수 시 7분) 자동 실행됩니다.
+**1시간마다** (매시 15분) 자동 실행됩니다.
 
 - 이미 보낸 코드는 `sent.json`에 기록되어 다시 보내지 않습니다. 이 기록은 repo가 아닌 **Actions 캐시**에 저장되므로 Fork하거나 복사해도 따라가지 않습니다.
 - 7일 넘게 실행되지 않으면 캐시가 삭제되어, 다음 실행 때 현재 유효한 코드가 다시 한꺼번에 전송될 수 있습니다.
 - 새 코드가 없으면 아무 메시지도 보내지 않습니다.
 - 주기를 바꾸려면 `coupon.yml`의 cron 값을 UTC 기준으로 수정하세요. (GitHub Actions 스케줄은 수 분~수십 분 지연될 수 있습니다.)
 
-> 💡 Private repo의 Actions 무료 한도는 월 2,000분입니다. 2시간 주기면 월 약 360분으로 충분합니다. Public repo는 무제한입니다.
+> 💡 Private repo의 Actions 무료 한도는 월 2,000분입니다. 1시간 주기면 월 약 750분으로 충분합니다. Public repo는 무제한입니다.
 
 ## ✍️ 직접 입력
 
