@@ -185,6 +185,18 @@ def fetch_seria(game):
     r.raise_for_status()
     return [(c.get("code", ""), c.get("rewards", "")) for c in r.json().get("codes", []) if c.get("status") == "OK"]
 
+def fetch_ennead(game):
+    # 비공식 공개 API: https://api.ennead.cc — seria가 실패할 때만 쓰는 예비용
+    # (한 묶음에서 하나만 쓸 수 있는 코드까지 전부 실려 있어 평소엔 쓰지 않음)
+    r = requests.get(f"https://api.ennead.cc/mihoyo/{game}/codes", timeout=TIMEOUT)
+    r.raise_for_status()
+    codes = []
+    for c in r.json().get("active", []):
+        # "Primogem ×60" → "Primogem*60" (seria와 같은 형식으로 맞춤)
+        items = [re.sub(r"\s*[x×]\s*([\d,]+)$", r"*\1", i.strip()) for i in c.get("rewards") or []]
+        codes.append((c.get("code", ""), ";".join(items)))
+    return codes
+
 def fetch_hoyolab(game_id):
     # HoYoLAB 게임 가이드 페이지의 교환 코드 모듈 (방송 코드가 있을 때만 채워짐)
     r = requests.get("https://bbs-api-os.hoyolab.com/community/painter/wapi/circle/channel/guide/material",
@@ -224,26 +236,30 @@ def fetch_wuwa_wiki(_):
         codes.append((code.group(1), rewards.group(1) if rewards else ""))
     return codes
 
-# (키, 수동 입력 환경변수, 게임 이름, 버튼용 짧은 이름, 교환 URL(없으면 None), 수집처 [(이름, 함수, 인자)])
+# (키, 수동 입력 환경변수, 게임 이름, 버튼용 짧은 이름, 교환 URL(없으면 None),
+#  수집처 [(이름, 함수, 인자[, 실패 시 대신 쓸 (이름, 함수, 인자)])])
 GAMES = [
     ("genshin", "GENSHIN", "원신",          "원신",   "https://genshin.hoyoverse.com/ko/gift?code={}",
-     [("seria", fetch_seria, "genshin"), ("hoyolab", fetch_hoyolab, 2)]),
+     [("seria", fetch_seria, "genshin", ("ennead", fetch_ennead, "genshin")), ("hoyolab", fetch_hoyolab, 2)]),
     ("hsr",     "HSR",     "붕괴 스타레일",  "붕스",   "https://hsr.hoyoverse.com/gift?code={}",
-     [("seria", fetch_seria, "hkrpg"),   ("hoyolab", fetch_hoyolab, 6)]),
+     [("seria", fetch_seria, "hkrpg",   ("ennead", fetch_ennead, "starrail")), ("hoyolab", fetch_hoyolab, 6)]),
     ("zzz",     "ZZZ",     "젠레스 존 제로", "젠존제", "https://zenless.hoyoverse.com/redemption?code={}",
-     [("seria", fetch_seria, "nap"),     ("hoyolab", fetch_hoyolab, 8)]),
+     [("seria", fetch_seria, "nap",     ("ennead", fetch_ennead, "zenless")),  ("hoyolab", fetch_hoyolab, 8)]),
     ("wuwa",    "WUWA",    "명조",          "명조",   None,
      [("wiki", fetch_wuwa_wiki, None)]),
 ]
 
 def collect(sources, name):
-    # 코드 → 보상. 한 수집처가 실패해도 나머지로 계속 진행
+    # 코드 → 보상. 실패하면 예비 수집처로 대신하고, 그것도 없거나 실패하면 나머지로 계속 진행
     found = {}
-    for label, fetch, arg in sources:
-        try:
-            items = fetch(arg)
-        except Exception as e:
-            print(f"[WARN] {name} {label} 수집 실패: {type(e).__name__}")
+    for primary in sources:
+        for label, fetch, arg in [primary[:3], *primary[3:]]:
+            try:
+                items = fetch(arg)
+                break
+            except Exception as e:
+                print(f"[WARN] {name} {label} 수집 실패: {type(e).__name__}")
+        else:
             continue
         for code, rewards in items:
             code = str(code).strip().upper()

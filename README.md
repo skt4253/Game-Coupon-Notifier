@@ -22,10 +22,11 @@
 | 수집처 | 설명 |
 |--------|------|
 | [hoyo-codes.seria.moe](https://hoyo-codes.seria.moe/codes?game=genshin) | 비공식 공개 API. 유효한(`OK`) 코드와 보상 정보 |
+| [Ennead API](https://api.ennead.cc/mihoyo/genshin/codes) | 비공식 공개 API. **seria가 실패할 때만** 대신 사용 (한 묶음에서 하나만 쓸 수 있는 코드까지 전부 실려 있어 평소엔 쓰지 않음) |
 | HoYoLAB 게임 가이드 | 공식. 특별 방송 코드가 공개된 기간에만 채워짐 |
 | [명조 Fandom 위키](https://wutheringwaves.fandom.com/wiki/Redemption_Code) | 명조 전용. Active 표에서 만료일이 지난 코드는 제외 |
 
-둘 다 무료이며 로그인·API 키가 필요 없습니다. 한쪽이 실패해도 나머지로 계속 진행합니다.
+모두 무료이며 로그인·API 키가 필요 없습니다. 한쪽이 실패해도 나머지로 계속 진행합니다.
 
 ## 📋 사전 준비
 
@@ -237,6 +238,18 @@ def fetch_seria(game):
     r.raise_for_status()
     return [(c.get("code", ""), c.get("rewards", "")) for c in r.json().get("codes", []) if c.get("status") == "OK"]
 
+def fetch_ennead(game):
+    # 비공식 공개 API: https://api.ennead.cc — seria가 실패할 때만 쓰는 예비용
+    # (한 묶음에서 하나만 쓸 수 있는 코드까지 전부 실려 있어 평소엔 쓰지 않음)
+    r = requests.get(f"https://api.ennead.cc/mihoyo/{game}/codes", timeout=TIMEOUT)
+    r.raise_for_status()
+    codes = []
+    for c in r.json().get("active", []):
+        # "Primogem ×60" → "Primogem*60" (seria와 같은 형식으로 맞춤)
+        items = [re.sub(r"\s*[x×]\s*([\d,]+)$", r"*\1", i.strip()) for i in c.get("rewards") or []]
+        codes.append((c.get("code", ""), ";".join(items)))
+    return codes
+
 def fetch_hoyolab(game_id):
     # HoYoLAB 게임 가이드 페이지의 교환 코드 모듈 (방송 코드가 있을 때만 채워짐)
     r = requests.get("https://bbs-api-os.hoyolab.com/community/painter/wapi/circle/channel/guide/material",
@@ -276,26 +289,30 @@ def fetch_wuwa_wiki(_):
         codes.append((code.group(1), rewards.group(1) if rewards else ""))
     return codes
 
-# (키, 수동 입력 환경변수, 게임 이름, 버튼용 짧은 이름, 교환 URL(없으면 None), 수집처 [(이름, 함수, 인자)])
+# (키, 수동 입력 환경변수, 게임 이름, 버튼용 짧은 이름, 교환 URL(없으면 None),
+#  수집처 [(이름, 함수, 인자[, 실패 시 대신 쓸 (이름, 함수, 인자)])])
 GAMES = [
     ("genshin", "GENSHIN", "원신",          "원신",   "https://genshin.hoyoverse.com/ko/gift?code={}",
-     [("seria", fetch_seria, "genshin"), ("hoyolab", fetch_hoyolab, 2)]),
+     [("seria", fetch_seria, "genshin", ("ennead", fetch_ennead, "genshin")), ("hoyolab", fetch_hoyolab, 2)]),
     ("hsr",     "HSR",     "붕괴 스타레일",  "붕스",   "https://hsr.hoyoverse.com/gift?code={}",
-     [("seria", fetch_seria, "hkrpg"),   ("hoyolab", fetch_hoyolab, 6)]),
+     [("seria", fetch_seria, "hkrpg",   ("ennead", fetch_ennead, "starrail")), ("hoyolab", fetch_hoyolab, 6)]),
     ("zzz",     "ZZZ",     "젠레스 존 제로", "젠존제", "https://zenless.hoyoverse.com/redemption?code={}",
-     [("seria", fetch_seria, "nap"),     ("hoyolab", fetch_hoyolab, 8)]),
+     [("seria", fetch_seria, "nap",     ("ennead", fetch_ennead, "zenless")),  ("hoyolab", fetch_hoyolab, 8)]),
     ("wuwa",    "WUWA",    "명조",          "명조",   None,
      [("wiki", fetch_wuwa_wiki, None)]),
 ]
 
 def collect(sources, name):
-    # 코드 → 보상. 한 수집처가 실패해도 나머지로 계속 진행
+    # 코드 → 보상. 실패하면 예비 수집처로 대신하고, 그것도 없거나 실패하면 나머지로 계속 진행
     found = {}
-    for label, fetch, arg in sources:
-        try:
-            items = fetch(arg)
-        except Exception as e:
-            print(f"[WARN] {name} {label} 수집 실패: {type(e).__name__}")
+    for primary in sources:
+        for label, fetch, arg in [primary[:3], *primary[3:]]:
+            try:
+                items = fetch(arg)
+                break
+            except Exception as e:
+                print(f"[WARN] {name} {label} 수집 실패: {type(e).__name__}")
+        else:
             continue
         for code, rewards in items:
             code = str(code).strip().upper()
@@ -569,7 +586,7 @@ gh workflow run coupon.yml -f genshin="ABC123 DEF456" -f hsr="STARRAIL" -f wuwa=
 
 - 호요버스 교환 페이지는 URL 하나에 코드 하나만 받으므로 코드마다 링크가 하나씩 생성됩니다
 - 디스코드는 버튼 하나로 여러 탭을 여는 기능을 지원하지 않습니다
-- seria API는 개인이 운영하는 비공식 서비스라 언젠가 중단될 수 있습니다
+- seria·Ennead API는 개인이 운영하는 비공식 서비스라 언젠가 중단될 수 있습니다. seria가 멈추면 Ennead가 대신하지만, 그때는 같은 묶음의 코드가 여러 개 올 수 있습니다 (하나만 교환됨)
 - 명조 코드는 위키 편집자가 갱신하는 만큼 반영되므로 공식 발표보다 늦을 수 있습니다
 - 외부에서 수집한 값은 코드 형식(영문 대문자·숫자 4~30자)만 통과시키고, 보상 문구의 링크·마크다운·멘션 문자는 제거한 뒤 사용합니다
 - **Secrets에 저장된 값은 절대 외부에 공유하지 마세요**
